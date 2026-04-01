@@ -29,7 +29,10 @@ if connection:
     create_table(connection, "mindcanvas", create_table_user)
     connection.close()
 def _get_connection():
-    return create_connection(os.getenv("MYSQL_HOST"), os.getenv("MYSQL_USERNAME"), os.getenv("MYSQL_PASSWORD"))
+    host = os.getenv("MYSQL_HOST") or "127.0.0.1"
+    username = os.getenv("MYSQL_USERNAME")
+    password = os.getenv("MYSQL_PASSWORD")
+    return create_connection(host, username, password)
 
 
 @app.route('/', methods=['GET'])
@@ -59,7 +62,10 @@ def create_user():
 
     conn = _get_connection()
     if not conn:
-        return jsonify({"error": "database connection failed"}), 500
+        return jsonify({
+            "error": "database connection failed",
+            "hint": "Set MYSQL_HOST, MYSQL_USERNAME and MYSQL_PASSWORD, and ensure MySQL is running."
+        }), 503
 
     try:
         cursor = conn.cursor()

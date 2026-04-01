@@ -4,9 +4,11 @@ from pydantic import BaseModel
 from typing import Optional, Dict, List
 import uvicorn
 import time
+import re
 from collections import defaultdict
 from dotenv import load_dotenv
 import base64
+from pathlib import Path
 # Load environment variables at startup
 load_dotenv()
 
@@ -28,6 +30,16 @@ app.add_middleware(
 
 # In-Memory Throttling: 10 requests per minute per IP
 request_history: Dict[str, List[float]] = defaultdict(list)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+GENERATED_IMAGE_DIR = PROJECT_ROOT / "frontend" / "public" / "generated_image"
+
+
+def _safe_image_name(text: str) -> str:
+    # Keep filenames portable across Windows/macOS/Linux.
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "_", text.strip())
+    cleaned = cleaned.strip("_")
+    return cleaned[:60] or "memory"
 
 def check_throttling(request: Request):
     client_ip = request.client.host if request.client else "127.0.0.1"
@@ -90,7 +102,10 @@ async def generate_artwork(req: GenerateRequest, request: Request):
         
         # Structured Logging
         print(f"[REQUEST] IP: {request.client.host} | Mood: {mood} | Intensity: {intensity} | Seed: {req.user_avatar_seed} | Latency: {latency_ms}ms")
-        with open(f"frontend/public/{input_text}.jpg", "wb") as image_file:
+        GENERATED_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+        image_filename = f"{_safe_image_name(input_text)}_{int(time.time())}.jpg"
+        image_path = GENERATED_IMAGE_DIR / image_filename
+        with open(image_path, "wb") as image_file:
             image_file.write(image_data)
 
         return GenerateResponse(
